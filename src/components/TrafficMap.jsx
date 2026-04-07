@@ -18,28 +18,75 @@ const vehiclePaths = {
   ],
 };
 
-export default function TrafficMap({ status }) {
+const junctions = [
+  { label: 'J1', name: 'Central Junction', left: '49%', top: '46%' },
+  { label: 'J2', name: 'North Ring', left: '20%', top: '21%' },
+  { label: 'J3', name: 'Civic Avenue', left: '72%', top: '68%' },
+  { label: 'J4', name: 'Metro Link', left: '76%', top: '30%' },
+];
+
+const cameras = [
+  { label: 'CAM 01', left: '14%', top: '39%' },
+  { label: 'CAM 02', left: '62%', top: '17%' },
+  { label: 'CAM 03', left: '82%', top: '54%' },
+];
+
+const signals = [
+  { left: '43%', top: '45%' },
+  { left: '54%', top: '45%' },
+  { left: '49%', top: '36%' },
+  { left: '49%', top: '57%' },
+];
+
+function SignalMarker({ left, top, status }) {
+  return (
+    <motion.div
+      className="absolute z-20 flex h-8 w-5 flex-col items-center justify-center gap-0.5 rounded-md border border-slate-500/70 bg-slate-950 p-1 shadow-lg"
+      style={{ left, top }}
+      animate={{ y: [0, -2, 0] }}
+      transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${status.id === 'high' ? 'bg-red-500' : 'bg-red-900/70'}`} />
+      <span className={`h-1.5 w-1.5 rounded-full ${status.id === 'medium' ? 'bg-yellow-300' : 'bg-yellow-900/70'}`} />
+      <span className={`h-1.5 w-1.5 rounded-full ${status.id === 'low' ? 'bg-emerald-400' : 'bg-emerald-900/70'}`} />
+    </motion.div>
+  );
+}
+
+export default function TrafficMap({ status, isLightMode = false, lastUpdated }) {
   const isHighTraffic = status.id === 'high';
   const vehicles = vehiclePaths[status.id];
+  const panelClass = isLightMode
+    ? 'border-slate-200 bg-white/90 text-slate-950'
+    : 'border-white/10 bg-slate-950/70 text-slate-100';
+  const mapBaseClass = isLightMode
+    ? 'border-slate-300 bg-slate-200'
+    : 'border-slate-700/80 bg-slate-900';
+  const mutedClass = isLightMode ? 'text-slate-600' : 'text-slate-400';
+  const roadClass = isLightMode ? 'bg-slate-500' : 'bg-slate-800';
+  const laneClass = isLightMode ? 'border-slate-200/90' : 'border-slate-500/80';
+  const labelClass = isLightMode
+    ? 'border-slate-300 bg-white/85 text-slate-700'
+    : 'border-white/10 bg-slate-950/70 text-slate-300';
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/70 p-4 shadow-traffic backdrop-blur">
+    <section className={`overflow-hidden rounded-2xl border p-4 shadow-traffic backdrop-blur ${panelClass}`}>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
+          <p className={`text-sm font-semibold uppercase tracking-[0.18em] ${mutedClass}`}>
             Live Traffic Map
           </p>
-          <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">Smart City Control Grid</h1>
+          <h1 className="mt-1 text-2xl font-black sm:text-3xl">Smart City Control Grid</h1>
         </div>
         <span className={`w-fit rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${status.pillClass}`}>
-          {status.label}
+          {status.label} traffic
         </span>
       </div>
 
-      <div className="map-grid relative min-h-[360px] overflow-hidden rounded-xl border border-slate-700/80 bg-slate-900 shadow-inner sm:min-h-[460px]">
+      <div className={`map-grid relative min-h-[360px] overflow-hidden rounded-xl border shadow-inner sm:min-h-[460px] ${mapBaseClass}`}>
         <motion.div
           key={status.id}
-          className="absolute inset-0"
+          className="absolute inset-0 z-10"
           initial={{ opacity: 0 }}
           animate={{
             opacity: status.overlayOpacity,
@@ -51,26 +98,32 @@ export default function TrafficMap({ status }) {
 
         {isHighTraffic && (
           <motion.div
-            className="absolute inset-8 rounded-full border border-red-400/30"
+            className="absolute inset-8 z-20 rounded-full border border-red-400/30"
             animate={{ scale: [1, 1.08, 1], opacity: [0.2, 0.55, 0.2] }}
             transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
           />
         )}
 
-        <div className="absolute left-1/2 top-0 h-full w-16 -translate-x-1/2 bg-slate-800 shadow-2xl">
-          <div className="mx-auto h-full w-1 border-l-2 border-dashed border-slate-500/80" />
+        <div className={`absolute left-1/2 top-0 h-full w-16 -translate-x-1/2 shadow-2xl ${roadClass}`}>
+          <div className={`mx-auto h-full w-1 border-l-2 border-dashed ${laneClass}`} />
         </div>
-        <div className="absolute left-0 top-1/2 h-16 w-full -translate-y-1/2 bg-slate-800 shadow-2xl">
-          <div className="my-auto h-1 w-full border-t-2 border-dashed border-slate-500/80" />
+        <div className={`absolute left-0 top-1/2 h-16 w-full -translate-y-1/2 shadow-2xl ${roadClass}`}>
+          <div className={`my-auto h-1 w-full border-t-2 border-dashed ${laneClass}`} />
         </div>
-        <div className="absolute left-[14%] top-[22%] h-12 w-[72%] rotate-[-12deg] rounded-full bg-slate-800 shadow-xl">
-          <div className="mx-auto mt-5 h-1 w-[92%] border-t-2 border-dashed border-slate-500/80" />
+        <div className={`absolute left-[14%] top-[22%] h-12 w-[72%] rotate-[-12deg] rounded-full shadow-xl ${roadClass}`}>
+          <div className={`mx-auto mt-5 h-1 w-[92%] border-t-2 border-dashed ${laneClass}`} />
         </div>
-        <div className="absolute left-[20%] top-[68%] h-12 w-[62%] rotate-[14deg] rounded-full bg-slate-800 shadow-xl">
-          <div className="mx-auto mt-5 h-1 w-[90%] border-t-2 border-dashed border-slate-500/80" />
+        <div className={`absolute left-[20%] top-[68%] h-12 w-[62%] rotate-[14deg] rounded-full shadow-xl ${roadClass}`}>
+          <div className={`mx-auto mt-5 h-1 w-[90%] border-t-2 border-dashed ${laneClass}`} />
+        </div>
+        <div className={`absolute left-[7%] top-[78%] h-10 w-[50%] rotate-[-5deg] rounded-full shadow-xl ${roadClass}`}>
+          <div className={`mx-auto mt-4 h-1 w-[86%] border-t-2 border-dashed ${laneClass}`} />
+        </div>
+        <div className={`absolute right-[4%] top-[12%] h-[68%] w-12 rotate-[9deg] rounded-full shadow-xl ${roadClass}`}>
+          <div className={`mx-auto h-full w-1 border-l-2 border-dashed ${laneClass}`} />
         </div>
 
-        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 800 520" aria-hidden="true">
+        <svg className="absolute inset-0 z-20 h-full w-full" viewBox="0 0 800 520" aria-hidden="true">
           <motion.path
             key={`${status.id}-route`}
             d="M92 270 C190 190, 294 178, 382 260 S582 372, 716 246"
@@ -101,17 +154,37 @@ export default function TrafficMap({ status }) {
           />
         </svg>
 
-        <div className="absolute left-[8%] top-[10%] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-slate-300 shadow-md">
-          North Ring
-        </div>
-        <div className="absolute bottom-[10%] right-[8%] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-slate-300 shadow-md">
-          Civic Avenue
-        </div>
+        {junctions.map((junction) => (
+          <div
+            key={junction.label}
+            className={`absolute z-30 rounded-xl border px-3 py-2 text-xs shadow-md ${labelClass}`}
+            style={{ left: junction.left, top: junction.top }}
+            title={junction.name}
+          >
+            <span className="font-black">{junction.label}</span> {junction.name}
+          </div>
+        ))}
+
+        {cameras.map((camera) => (
+          <motion.div
+            key={camera.label}
+            className={`absolute z-30 rounded-xl border px-2 py-1 text-[11px] font-black shadow-md ${labelClass}`}
+            style={{ left: camera.left, top: camera.top }}
+            animate={{ opacity: [0.65, 1, 0.65] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            {camera.label}
+          </motion.div>
+        ))}
+
+        {signals.map((signal) => (
+          <SignalMarker key={`${signal.left}-${signal.top}`} left={signal.left} top={signal.top} status={status} />
+        ))}
 
         {vehicles.map((vehicle, index) => (
           <motion.div
             key={`${status.id}-${index}`}
-            className={`absolute h-3 w-7 rounded-full ${status.vehicleClass}`}
+            className={`absolute z-30 h-3 w-7 rounded-full ${status.vehicleClass}`}
             style={{
               left: index % 2 === 0 ? '4%' : '72%',
               top: `${42 + index * 8}%`,
@@ -126,10 +199,16 @@ export default function TrafficMap({ status }) {
           />
         ))}
 
-        <div className="absolute bottom-4 left-4 right-4 rounded-xl border border-white/10 bg-slate-950/75 p-3 shadow-lg backdrop-blur">
+        <div className={`absolute bottom-4 left-4 right-4 z-40 rounded-xl border p-3 shadow-lg backdrop-blur ${labelClass}`}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm font-semibold text-slate-100">{status.mapMessage}</p>
-            <p className="text-xs text-slate-400">Updated by traffic simulation controls</p>
+            <div>
+              <p className="text-sm font-semibold">{status.mapMessage}</p>
+              <p className={`mt-1 text-xs ${mutedClass}`}>Monitoring Zone: Central City</p>
+            </div>
+            <div className="text-left sm:text-right">
+              <p className="text-xs font-bold uppercase tracking-[0.16em]">{status.estimatedDelay}</p>
+              <p className={`text-xs ${mutedClass}`}>Last updated: {lastUpdated}</p>
+            </div>
           </div>
         </div>
       </div>
