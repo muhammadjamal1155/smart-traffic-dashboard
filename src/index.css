@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif;
+  background: #07111f;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(34, 197, 94, 0.16), transparent 30rem),
+    radial-gradient(circle at bottom right, rgba(239, 68, 68, 0.14), transparent 28rem),
+    #07111f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.map-grid {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
