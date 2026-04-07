@@ -70,7 +70,7 @@ export default function TrafficMap({ status, isLightMode = false, lastUpdated })
     : 'border-white/10 bg-slate-950/70 text-slate-300';
 
   return (
-    <section className={`overflow-hidden rounded-2xl border p-4 shadow-traffic backdrop-blur ${panelClass}`}>
+    <section className={`flex h-full flex-col overflow-hidden rounded-2xl border p-4 shadow-traffic backdrop-blur ${panelClass}`}>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className={`text-sm font-semibold uppercase tracking-[0.18em] ${mutedClass}`}>
@@ -83,7 +83,7 @@ export default function TrafficMap({ status, isLightMode = false, lastUpdated })
         </span>
       </div>
 
-      <div className={`map-grid relative min-h-[360px] overflow-hidden rounded-xl border shadow-inner sm:min-h-[460px] ${mapBaseClass}`}>
+      <div className={`map-grid relative min-h-[420px] flex-1 overflow-hidden rounded-xl border shadow-inner sm:min-h-[560px] xl:min-h-0 ${mapBaseClass}`}>
         <motion.div
           key={status.id}
           className="absolute inset-0 z-10"
@@ -215,3 +215,4 @@ export default function TrafficMap({ status, isLightMode = false, lastUpdated })
     </section>
   );
 }
+
