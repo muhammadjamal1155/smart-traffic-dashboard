@@ -1,18 +1,20 @@
 # Smart Traffic Dashboard
 
-A modern Live Traffic UI simulation for a Smart Traffic & Road Safety web application. The dashboard lets users switch between low, medium, and high traffic states while the map overlay, status badge, route line, and animated traffic indicators update in real time.
+A modern Live Traffic UI simulation for a Smart Traffic & Road Safety web application. The module presents a smart city control room where users can switch traffic levels and watch the map overlay, status badge, route line, vehicle markers, and alert states update with smooth animations.
 
-## Features
+## Key Features
 
-- Dark mode smart city dashboard design
-- Interactive traffic controls for Low, Medium, and High traffic
-- Dynamic traffic map overlay with green, yellow, and red states
-- Animated route drawing and moving vehicle indicators
-- High traffic pulse alert animation
-- Traffic status badge with smooth Framer Motion transitions
-- Traffic legend for quick color reference
-- Responsive layout for desktop, tablet, and mobile screens
-- Project favicon related to the traffic dashboard theme
+- Dark smart city dashboard UI with traffic color consistency
+- Interactive Low, Medium, and High traffic controls
+- Dynamic map overlay using green, yellow, and red traffic states
+- Animated route drawing, moving vehicle markers, signal lights, and camera labels
+- High-traffic accident alert popup with urgent visual styling
+- Real-time clock and last-updated timestamp
+- Voice input simulation button for bonus UI interaction
+- Dark/light mode toggle
+- Traffic density bars and estimated delay display
+- Responsive layout for mobile, tablet, and desktop screens
+- Project-specific SVG favicon
 
 ## Tech Stack
 
@@ -21,7 +23,23 @@ A modern Live Traffic UI simulation for a Smart Traffic & Road Safety web applic
 - Framer Motion
 - Vite
 
-## Getting Started
+## Code Structure
+
+```text
+src/
+|-- components/
+|   |-- TrafficControls.jsx
+|   |-- TrafficLegend.jsx
+|   |-- TrafficMap.jsx
+|   |-- TrafficStatusBadge.jsx
+|-- pages/
+|   |-- LiveTrafficPage.jsx
+|-- App.jsx
+|-- index.css
+|-- main.jsx
+```
+
+## Local Setup
 
 Install dependencies:
 
@@ -47,29 +65,29 @@ Preview the production build:
 npm run preview
 ```
 
-## Project Structure
-
-```text
-src/
-├── components/
-│   ├── TrafficControls.jsx
-│   ├── TrafficLegend.jsx
-│   ├── TrafficMap.jsx
-│   └── TrafficStatusBadge.jsx
-├── pages/
-│   └── LiveTrafficPage.jsx
-├── App.jsx
-├── index.css
-└── main.jsx
-```
-
-## Live Traffic Module
+## Live Traffic Logic
 
 The Live Traffic page uses React state to manage the selected traffic level:
 
-- Low traffic uses a green overlay and smooth traffic flow
-- Medium traffic uses a yellow overlay and moderate delay messaging
-- High traffic uses a red overlay, pulse animation, and rerouting alert messaging
+- Low traffic: green overlay, smooth flow message, 2 minute estimated delay
+- Medium traffic: yellow overlay, moderate delay message, 8 minute estimated delay
+- High traffic: red overlay, urgent alert state, 18 minute estimated delay
+
+The UI is split into reusable components for cleaner integration:
+
+- `TrafficMap` handles the animated map simulation
+- `TrafficControls` handles level selection buttons
+- `TrafficStatusBadge` handles status and density animation
+- `TrafficLegend` explains the traffic color system
+- `LiveTrafficPage` combines layout, page state, clock, alert, and theme logic
+
+## Review Checklist
+
+- Clean spacing and consistent dashboard theme
+- Mobile responsive layout
+- Readable component-based code
+- Meaningful traffic colors and visible animations
+- README includes intro, features, setup, and structure
 
 ## Author
 

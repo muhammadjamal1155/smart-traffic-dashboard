@@ -5,6 +5,7 @@ import TrafficLegend from '../components/TrafficLegend.jsx';
 import TrafficMap from '../components/TrafficMap.jsx';
 import TrafficStatusBadge from '../components/TrafficStatusBadge.jsx';
 
+// Single source of truth for traffic state, colors, and animated UI copy.
 const trafficLevels = [
   {
     id: 'low',
@@ -86,6 +87,7 @@ export default function LiveTrafficPage() {
     [selectedTraffic],
   );
 
+  // Keeps the simulated control room clock and loader synchronized.
   useEffect(() => {
     const clock = window.setInterval(() => {
       setCurrentTime(new Date());
@@ -101,6 +103,7 @@ export default function LiveTrafficPage() {
     };
   }, []);
 
+  // Traffic changes update the timestamp and trigger the urgent alert state.
   useEffect(() => {
     setLastUpdated(new Date());
     setShowAccidentAlert(selectedTraffic === 'high');
@@ -164,14 +167,14 @@ export default function LiveTrafficPage() {
         transition={{ duration: 0.55, ease: 'easeOut' }}
         className="mx-auto flex w-full max-w-7xl flex-col gap-6"
       >
-        <nav className={`flex flex-wrap items-center gap-2 rounded-2xl border p-3 backdrop-blur ${theme.nav}`}>
+        <nav className={`flex flex-nowrap items-center gap-2 overflow-x-auto rounded-2xl border p-3 backdrop-blur sm:flex-wrap ${theme.nav}`}>
           {navigationItems.map((item) => (
             <motion.button
               key={item}
               type="button"
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.96 }}
-              className={`rounded-xl px-3 py-2 text-xs font-bold transition-colors sm:text-sm ${
+              className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition-colors sm:text-sm ${
                 item === 'Live Traffic' ? theme.navActive : 'hover:bg-white/10'
               }`}
             >
@@ -180,13 +183,13 @@ export default function LiveTrafficPage() {
           ))}
         </nav>
 
-        <header className={`rounded-2xl border p-6 backdrop-blur ${theme.panel}`}>
+        <header className={`rounded-2xl border p-4 backdrop-blur sm:p-6 ${theme.panel}`}>
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">
                 Smart Traffic Dashboard
               </p>
-              <h1 className="mt-3 text-3xl font-black sm:text-5xl">Live Traffic UI Simulation</h1>
+              <h1 className="mt-3 text-2xl font-black sm:text-4xl lg:text-5xl">Live Traffic UI Simulation</h1>
               <p className={`mt-3 max-w-2xl text-sm leading-6 sm:text-base ${theme.muted}`}>
                 Monitor congestion, switch traffic levels, and watch the smart city map respond with animated overlays and route signals.
               </p>
@@ -275,7 +278,7 @@ export default function LiveTrafficPage() {
           )}
         </AnimatePresence>
 
-        <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <TrafficMap status={currentStatus} isLightMode={isLightMode} lastUpdated={formatClock(lastUpdated)} />
 
           <div className="flex flex-col gap-6">
@@ -293,3 +296,6 @@ export default function LiveTrafficPage() {
     </main>
   );
 }
+
+
+

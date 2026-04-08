@@ -18,6 +18,7 @@ const vehiclePaths = {
   ],
 };
 
+// Decorative markers make the placeholder map feel like a real control grid.
 const junctions = [
   { label: 'J1', name: 'Central Junction', left: '49%', top: '46%' },
   { label: 'J2', name: 'North Ring', left: '20%', top: '21%' },
@@ -70,20 +71,20 @@ export default function TrafficMap({ status, isLightMode = false, lastUpdated })
     : 'border-white/10 bg-slate-950/70 text-slate-300';
 
   return (
-    <section className={`flex h-full flex-col overflow-hidden rounded-2xl border p-4 shadow-traffic backdrop-blur ${panelClass}`}>
+    <section className={`overflow-hidden rounded-2xl border p-4 shadow-traffic backdrop-blur sm:p-5 ${panelClass}`}>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className={`text-sm font-semibold uppercase tracking-[0.18em] ${mutedClass}`}>
             Live Traffic Map
           </p>
-          <h1 className="mt-1 text-2xl font-black sm:text-3xl">Smart City Control Grid</h1>
+          <h1 className="mt-1 text-xl font-black sm:text-2xl lg:text-3xl">Smart City Control Grid</h1>
         </div>
         <span className={`w-fit rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${status.pillClass}`}>
           {status.label} traffic
         </span>
       </div>
 
-      <div className={`map-grid relative min-h-[420px] flex-1 overflow-hidden rounded-xl border shadow-inner sm:min-h-[560px] xl:min-h-0 ${mapBaseClass}`}>
+      <div className={`map-grid relative min-h-[360px] overflow-hidden rounded-xl border shadow-inner sm:min-h-[480px] lg:min-h-[560px] ${mapBaseClass}`}>
         <motion.div
           key={status.id}
           className="absolute inset-0 z-10"
@@ -157,7 +158,7 @@ export default function TrafficMap({ status, isLightMode = false, lastUpdated })
         {junctions.map((junction) => (
           <div
             key={junction.label}
-            className={`absolute z-30 rounded-xl border px-3 py-2 text-xs shadow-md ${labelClass}`}
+            className={`absolute z-30 rounded-xl border px-2 py-1.5 text-[10px] shadow-md sm:px-3 sm:py-2 sm:text-xs ${labelClass}`}
             style={{ left: junction.left, top: junction.top }}
             title={junction.name}
           >
@@ -199,7 +200,7 @@ export default function TrafficMap({ status, isLightMode = false, lastUpdated })
           />
         ))}
 
-        <div className={`absolute bottom-4 left-4 right-4 z-40 rounded-xl border p-3 shadow-lg backdrop-blur ${labelClass}`}>
+        <div className={`absolute bottom-3 left-3 right-3 z-40 rounded-xl border p-3 shadow-lg backdrop-blur sm:bottom-4 sm:left-4 sm:right-4 ${labelClass}`}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold">{status.mapMessage}</p>
