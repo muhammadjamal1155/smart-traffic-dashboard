@@ -1,13 +1,15 @@
 # Smart Traffic Dashboard
 
-A modern Live Traffic UI simulation for a Smart Traffic & Road Safety web application. The module presents a smart city control room where users can switch traffic levels and watch the map overlay, status badge, route line, vehicle markers, and alert states update with smooth animations.
+A modern Live Traffic UI module for a Smart Traffic & Road Safety web application. The dashboard works as a smart city control room where users can view a live TomTom traffic map, calculate driving ETA with traffic, switch traffic states, and interact with animated safety-focused UI elements.
 
 ## Key Features
 
-- Dark smart city dashboard UI with traffic color consistency
+- Dark smart city dashboard UI with consistent traffic colors
+- Real TomTom map view with live traffic flow when an API key is configured
+- Real driving ETA and distance calculation using TomTom Routing API
+- Animated fallback map when a TomTom API key is not available
 - Interactive Low, Medium, and High traffic controls
-- Dynamic map overlay using green, yellow, and red traffic states
-- Animated route drawing, moving vehicle markers, signal lights, and camera labels
+- Animated route drawing, vehicle markers, signal lights, and camera labels in fallback mode
 - High-traffic accident alert popup with urgent visual styling
 - Real-time clock and last-updated timestamp
 - Voice input simulation button for bonus UI interaction
@@ -22,12 +24,14 @@ A modern Live Traffic UI simulation for a Smart Traffic & Road Safety web applic
 - Tailwind CSS
 - Framer Motion
 - Vite
+- TomTom Maps SDK
 
 ## Code Structure
 
 ```text
 src/
 |-- components/
+|   |-- TomTomTrafficMap.jsx
 |   |-- TrafficControls.jsx
 |   |-- TrafficLegend.jsx
 |   |-- TrafficMap.jsx
@@ -40,6 +44,18 @@ src/
 ```
 
 ## Local Setup
+
+Create an env file for the live TomTom map:
+
+```bash
+cp .env.example .env.local
+```
+
+Add your TomTom JavaScript API key in `.env.local`:
+
+```bash
+VITE_TOMTOM_API_KEY=your_tomtom_key_here
+```
 
 Install dependencies:
 
@@ -67,19 +83,24 @@ npm run preview
 
 ## Live Traffic Logic
 
-The Live Traffic page uses React state to manage the selected traffic level:
+When `VITE_TOMTOM_API_KEY` is configured, the map loads TomTom with real traffic flow. The route form uses live driving directions and returns traffic-aware ETA when TomTom provides it.
 
-- Low traffic: green overlay, smooth flow message, 2 minute estimated delay
-- Medium traffic: yellow overlay, moderate delay message, 8 minute estimated delay
-- High traffic: red overlay, urgent alert state, 18 minute estimated delay
+If no key is configured, the app keeps a polished animated fallback so the UI still works for demos and screenshots.
 
-The UI is split into reusable components for cleaner integration:
+Traffic state is managed with React state:
 
-- `TrafficMap` handles the animated map simulation
+- Low traffic: green UI state, smooth flow message, 2 minute estimated delay
+- Medium traffic: yellow UI state, moderate delay message, 8 minute estimated delay
+- High traffic: red UI state, urgent alert state, 18 minute estimated delay
+
+The UI is split into reusable components:
+
+- `TomTomTrafficMap` loads TomTom Maps SDK, traffic flow, search, and routing
+- `TrafficMap` switches between live TomTom map and animated fallback simulation
 - `TrafficControls` handles level selection buttons
 - `TrafficStatusBadge` handles status and density animation
 - `TrafficLegend` explains the traffic color system
-- `LiveTrafficPage` combines layout, page state, clock, alert, and theme logic
+- `LiveTrafficPage` combines layout, page state, clock, alert, route form, and theme logic
 
 ## Review Checklist
 
@@ -88,8 +109,12 @@ The UI is split into reusable components for cleaner integration:
 - Readable component-based code
 - Meaningful traffic colors and visible animations
 - README includes intro, features, setup, and structure
+- Environment variable documented without exposing a real API key
 
 ## Author
 
 Muhammad Jamal  
 GitHub: [muhammadjamal1155](https://github.com/muhammadjamal1155)
+
+
+

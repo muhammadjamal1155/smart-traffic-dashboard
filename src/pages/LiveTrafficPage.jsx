@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import TrafficControls from '../components/TrafficControls.jsx';
 import TrafficLegend from '../components/TrafficLegend.jsx';
@@ -72,7 +72,274 @@ const formatClock = (date) =>
     second: '2-digit',
     hour12: true,
   }).format(date);
+const trafficLevelLookup = Object.fromEntries(trafficLevels.map((level) => [level.id, level]));
 
+const signalRecommendations = {
+  low: 'Normal signal cycle. Keep green phases balanced across all junctions.',
+  medium: 'Extend green light by 10 seconds on the busiest corridor.',
+  high: 'Activate congestion control mode and prioritize emergency vehicle lanes.',
+};
+
+const zonePattern = {
+  low: ['low', 'low', 'medium', 'low'],
+  medium: ['medium', 'low', 'medium', 'high'],
+  high: ['high', 'medium', 'high', 'high'],
+};
+
+const zoneNames = ['Central City', 'Highway Entry', 'Commercial Area', 'School Zone'];
+
+function getTrafficLevelFromDelaySeconds(delaySeconds) {
+  if (!Number.isFinite(delaySeconds)) {
+    return 'medium';
+  }
+
+  const delayMinutes = delaySeconds / 60;
+
+  if (delayMinutes <= 5) {
+    return 'low';
+  }
+
+  if (delayMinutes <= 15) {
+    return 'medium';
+  }
+
+  return 'high';
+}
+
+function getDensityFromDelaySeconds(delaySeconds, fallbackDensity) {
+  if (!Number.isFinite(delaySeconds)) {
+    return fallbackDensity;
+  }
+
+  const delayMinutes = delaySeconds / 60;
+  return Math.min(96, Math.max(24, Math.round(24 + delayMinutes * 4.5)));
+}
+
+function getDelayLabelFromSeconds(delaySeconds, fallbackDelay) {
+  if (!Number.isFinite(delaySeconds)) {
+    return fallbackDelay;
+  }
+
+  const delayMinutes = Math.max(0, Math.round(delaySeconds / 60));
+  return `${delayMinutes} min live delay`;
+}
+
+function RoutePlannerPanel({
+  start,
+  destination,
+  routeResult,
+  routeError,
+  isRouteLoading,
+  isLiveMapEnabled,
+  onStartChange,
+  onDestinationChange,
+  onSubmit,
+  theme,
+}) {
+  return (
+    <form onSubmit={onSubmit} className={`rounded-2xl border p-4 shadow-lg backdrop-blur ${theme.panel}`}>
+      <p className={`mb-3 text-sm font-semibold uppercase tracking-[0.18em] ${theme.muted}`}>Real Route ETA</p>
+      <div className="space-y-3">
+        <label className="block text-sm font-semibold">
+          Start location
+          <input
+            value={start}
+            onChange={(event) => onStartChange(event.target.value)}
+            placeholder="Example: Saddar Karachi"
+            className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-400/20"
+          />
+        </label>
+        <label className="block text-sm font-semibold">
+          Destination
+          <input
+            value={destination}
+            onChange={(event) => onDestinationChange(event.target.value)}
+            placeholder="Example: Clifton Karachi"
+            className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-400/20"
+          />
+        </label>
+        <motion.button
+          type="submit"
+          disabled={!isLiveMapEnabled || isRouteLoading}
+          whileHover={isLiveMapEnabled && !isRouteLoading ? { scale: 1.03, y: -1 } : undefined}
+          whileTap={isLiveMapEnabled && !isRouteLoading ? { scale: 0.97 } : undefined}
+          className={`w-full rounded-xl px-4 py-3 text-sm font-black transition ${
+            isLiveMapEnabled && !isRouteLoading
+              ? 'bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-300'
+              : 'cursor-not-allowed bg-slate-700 text-slate-400'
+          }`}
+        >
+          {isRouteLoading ? 'Calculating...' : 'Calculate Live ETA'}
+        </motion.button>
+      </div>
+
+      {!isLiveMapEnabled && (
+        <p className={`mt-3 text-xs leading-5 ${theme.muted}`}>
+          Add VITE_TOMTOM_API_KEY in your env file to enable TomTom traffic and directions.
+        </p>
+      )}
+
+      {routeError && <p className="mt-3 rounded-xl border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100">{routeError}</p>}
+
+      {routeResult && (
+        <div className="mt-3 rounded-xl border border-emerald-300/30 bg-emerald-400/10 p-3">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-300">Best route</p>
+          <p className="mt-1 text-sm font-semibold">{routeResult.summary}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+            <div className="rounded-lg bg-black/10 p-2">
+              <p className={`text-xs ${theme.muted}`}>Traffic ETA</p>
+              <p className="font-black">{routeResult.durationInTraffic}</p>
+            </div>
+            <div className="rounded-lg bg-black/10 p-2">
+              <p className={`text-xs ${theme.muted}`}>Distance</p>
+              <p className="font-black">{routeResult.distance}</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </form>
+  );
+}
+
+function TrafficTransitionAlert({ transition, onDismiss }) {
+  if (!transition) {
+    return null;
+  }
+
+  const toneClass = transition.toId === 'high' ? 'border-red-300/40 bg-red-500/15 text-red-50' : 'border-emerald-300/35 bg-emerald-400/10 text-emerald-50';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -12, scale: 0.98 }}
+      className={`rounded-2xl border p-4 shadow-lg backdrop-blur ${toneClass}`}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] opacity-75">Traffic Level Updated</p>
+          <p className="mt-1 text-sm font-semibold">
+            Traffic changed from {transition.fromLabel} to {transition.toLabel}. Dashboard colors and route status are now synced.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="rounded-xl border border-white/20 px-4 py-2 text-sm font-bold transition hover:bg-white/10"
+        >
+          Dismiss
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+function TrafficIntelligencePanel({ status, routeResult, trafficHistory, isLightMode, theme }) {
+  const liveDelaySeconds = routeResult?.trafficDelaySeconds;
+  const hasLiveDelay = Number.isFinite(liveDelaySeconds);
+  const delayMinutes = hasLiveDelay ? Math.round(liveDelaySeconds / 60) : null;
+  const meterTrack = isLightMode ? 'bg-slate-200' : 'bg-white/10';
+  const cardClass = isLightMode ? 'bg-slate-100/80' : 'bg-white/[0.04]';
+
+  return (
+    <section className={`rounded-2xl border p-4 shadow-lg backdrop-blur ${theme.panel}`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className={`text-sm font-semibold uppercase tracking-[0.18em] ${theme.muted}`}>Traffic Intelligence</p>
+          <h2 className="mt-1 text-xl font-black">Severity Meter</h2>
+        </div>
+        <span className={`w-fit rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${status.pillClass}`}>
+          {hasLiveDelay ? 'Live detected' : 'Manual mode'}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className={`rounded-xl p-4 ${cardClass}`}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-bold">Congestion score</span>
+            <span className="text-2xl font-black">{status.density}%</span>
+          </div>
+          <div className={`mt-4 h-4 overflow-hidden rounded-full ${meterTrack}`}>
+            <motion.div
+              key={status.id + status.density}
+              initial={{ width: 0 }}
+              animate={{ width: `${status.density}%` }}
+              transition={{ duration: 0.7, ease: 'easeOut' }}
+              className="h-full rounded-full"
+              style={{ backgroundColor: status.routeColor, boxShadow: `0 0 24px ${status.routeColor}` }}
+            />
+          </div>
+          <p className={`mt-3 text-sm leading-6 ${theme.muted}`}>
+            {hasLiveDelay
+              ? `TomTom live delay is ${delayMinutes} minute(s), so the dashboard classified this route as ${status.label}.`
+              : 'Select a route to auto-detect traffic level from live delay, or use the control buttons for manual simulation.'}
+          </p>
+        </div>
+
+        <div className={`rounded-xl p-4 ${cardClass}`}>
+          <p className="text-xs font-black uppercase tracking-[0.16em] opacity-70">Smart Signal Recommendation</p>
+          <p className="mt-2 text-sm font-semibold leading-6">{signalRecommendations[status.id]}</p>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <p className={`text-xs font-black uppercase tracking-[0.16em] ${theme.muted}`}>Traffic Level History</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {trafficHistory.map((entry, index) => {
+            const level = trafficLevelLookup[entry.id];
+
+            return (
+              <motion.div
+                key={`${entry.time}-${entry.id}-${index}`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: index * 0.04 }}
+                className={`rounded-xl border px-3 py-3 ${level.pillClass}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-black">{level.label}</span>
+                  <span className={`h-3 w-3 rounded-full ${level.dotClass}`} />
+                </div>
+                <p className="mt-1 text-xs opacity-75">{entry.time}</p>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ZoneTrafficPanel({ status, isLightMode, theme }) {
+  const zones = zoneNames.map((name, index) => trafficLevelLookup[zonePattern[status.id][index]]);
+  const rowClass = isLightMode ? 'bg-slate-100/80' : 'bg-white/[0.04]';
+
+  return (
+    <section className={`rounded-2xl border p-4 shadow-lg backdrop-blur ${theme.panel}`}>
+      <p className={`text-sm font-semibold uppercase tracking-[0.18em] ${theme.muted}`}>Area Traffic Levels</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {zones.map((zoneStatus, index) => (
+          <motion.div
+            key={zoneNames[index]}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, delay: index * 0.05 }}
+            className={`rounded-xl border p-4 ${rowClass}`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-black">{zoneNames[index]}</p>
+              <span className={`h-3.5 w-3.5 rounded-full ${zoneStatus.dotClass}`} />
+            </div>
+            <p className={`mt-2 inline-block rounded-full border px-2 py-1 text-xs font-bold uppercase tracking-[0.14em] ${zoneStatus.pillClass}`}>
+              {zoneStatus.label}
+            </p>
+            <p className={`mt-3 text-xs leading-5 ${theme.muted}`}>{zoneStatus.description}</p>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
 export default function LiveTrafficPage() {
   const [selectedTraffic, setSelectedTraffic] = useState('medium');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -81,11 +348,65 @@ export default function LiveTrafficPage() {
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [showAccidentAlert, setShowAccidentAlert] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [routeStart, setRouteStart] = useState('');
+  const [routeDestination, setRouteDestination] = useState('');
+  const [routeRequestId, setRouteRequestId] = useState(0);
+  const [routeResult, setRouteResult] = useState(null);
+  const [routeError, setRouteError] = useState('');
+  const [isRouteLoading, setIsRouteLoading] = useState(false);
+  const [trafficTransition, setTrafficTransition] = useState(null);
+  const [trafficHistory, setTrafficHistory] = useState(() => [
+    { id: 'medium', label: 'Medium', time: formatClock(new Date()) },
+  ]);
+  const previousTrafficRef = useRef('medium');
 
-  const currentStatus = useMemo(
-    () => trafficLevels.find((level) => level.id === selectedTraffic) ?? trafficLevels[1],
-    [selectedTraffic],
-  );
+  const currentStatus = useMemo(() => {
+    const baseStatus = trafficLevelLookup[selectedTraffic] ?? trafficLevels[1];
+    const liveDelaySeconds = routeResult?.trafficDelaySeconds;
+
+    return {
+      ...baseStatus,
+      density: getDensityFromDelaySeconds(liveDelaySeconds, baseStatus.density),
+      estimatedDelay: getDelayLabelFromSeconds(liveDelaySeconds, baseStatus.estimatedDelay),
+      signalRecommendation: signalRecommendations[baseStatus.id],
+    };
+  }, [selectedTraffic, routeResult]);
+  const isLiveMapEnabled = Boolean(import.meta.env.VITE_TOMTOM_API_KEY);
+
+  const handleRouteSubmit = (event) => {
+    event.preventDefault();
+    setRouteError('');
+    setRouteResult(null);
+
+    if (!isLiveMapEnabled) {
+      setRouteError('Add VITE_TOMTOM_API_KEY in .env.local before calculating a live ETA.');
+      return;
+    }
+
+    setIsRouteLoading(true);
+    setRouteRequestId((requestId) => requestId + 1);
+  };
+
+  const handleRouteResult = useCallback((result) => {
+    const detectedTrafficLevel = getTrafficLevelFromDelaySeconds(result.trafficDelaySeconds);
+
+    setIsRouteLoading(false);
+    setRouteError('');
+    setRouteResult(result);
+    setSelectedTraffic(detectedTrafficLevel);
+  }, []);
+
+  const handleRouteError = useCallback((message) => {
+    setIsRouteLoading(false);
+    setRouteResult(null);
+    setRouteError(message);
+  }, []);
+
+  const handleTrafficChange = useCallback((levelId) => {
+    setRouteResult(null);
+    setRouteError('');
+    setSelectedTraffic(levelId);
+  }, []);
 
   // Keeps the simulated control room clock and loader synchronized.
   useEffect(() => {
@@ -103,10 +424,28 @@ export default function LiveTrafficPage() {
     };
   }, []);
 
-  // Traffic changes update the timestamp and trigger the urgent alert state.
+  // Traffic changes update alerts and keep a compact monitoring history.
   useEffect(() => {
-    setLastUpdated(new Date());
+    const updateTime = new Date();
+    const previousTrafficId = previousTrafficRef.current;
+    const nextLevel = trafficLevelLookup[selectedTraffic] ?? trafficLevels[1];
+    const previousLevel = trafficLevelLookup[previousTrafficId] ?? trafficLevels[1];
+
+    setLastUpdated(updateTime);
     setShowAccidentAlert(selectedTraffic === 'high');
+
+    if (previousTrafficId !== selectedTraffic) {
+      setTrafficTransition({
+        fromLabel: previousLevel.label,
+        toLabel: nextLevel.label,
+        toId: nextLevel.id,
+      });
+      setTrafficHistory((history) => [
+        { id: nextLevel.id, label: nextLevel.label, time: formatClock(updateTime) },
+        ...history,
+      ].slice(0, 4));
+      previousTrafficRef.current = selectedTraffic;
+    }
   }, [selectedTraffic]);
 
   useEffect(() => {
@@ -200,6 +539,9 @@ export default function LiveTrafficPage() {
                 <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-sky-300">
                   Last updated: {formatClock(lastUpdated)}
                 </span>
+                <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-sky-300">
+                  {isLiveMapEnabled ? 'TomTom traffic enabled' : 'TomTom traffic key needed'}
+                </span>
               </div>
             </div>
 
@@ -278,24 +620,60 @@ export default function LiveTrafficPage() {
           )}
         </AnimatePresence>
 
+        <AnimatePresence>
+          <TrafficTransitionAlert transition={trafficTransition} onDismiss={() => setTrafficTransition(null)} />
+        </AnimatePresence>
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.9fr)]">
+          <TrafficControls
+            levels={trafficLevels}
+            selectedLevel={selectedTraffic}
+            onChange={handleTrafficChange}
+            isLightMode={isLightMode}
+          />
+          <TrafficLegend levels={trafficLevels} isLightMode={isLightMode} />
+        </div>
+
+        <TrafficIntelligencePanel
+          status={currentStatus}
+          routeResult={routeResult}
+          trafficHistory={trafficHistory}
+          isLightMode={isLightMode}
+          theme={theme}
+        />
+
+        <ZoneTrafficPanel status={currentStatus} isLightMode={isLightMode} theme={theme} />
+
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <TrafficMap status={currentStatus} isLightMode={isLightMode} lastUpdated={formatClock(lastUpdated)} />
+          <TrafficMap
+            status={currentStatus}
+            isLightMode={isLightMode}
+            lastUpdated={formatClock(lastUpdated)}
+            routeStart={routeStart}
+            routeDestination={routeDestination}
+            routeRequestId={routeRequestId}
+            onRouteResult={handleRouteResult}
+            onRouteError={handleRouteError}
+          />
 
           <div className="flex flex-col gap-6">
-            <TrafficStatusBadge status={currentStatus} isLightMode={isLightMode} />
-            <TrafficControls
-              levels={trafficLevels}
-              selectedLevel={selectedTraffic}
-              onChange={setSelectedTraffic}
-              isLightMode={isLightMode}
+            <RoutePlannerPanel
+              start={routeStart}
+              destination={routeDestination}
+              routeResult={routeResult}
+              routeError={routeError}
+              isRouteLoading={isRouteLoading}
+              isLiveMapEnabled={isLiveMapEnabled}
+              onStartChange={setRouteStart}
+              onDestinationChange={setRouteDestination}
+              onSubmit={handleRouteSubmit}
+              theme={theme}
             />
-            <TrafficLegend levels={trafficLevels} isLightMode={isLightMode} />
+            <TrafficStatusBadge status={currentStatus} isLightMode={isLightMode} />
           </div>
         </div>
       </motion.div>
     </main>
   );
 }
-
-
 
