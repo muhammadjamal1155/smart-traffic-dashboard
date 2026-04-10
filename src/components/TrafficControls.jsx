@@ -20,15 +20,24 @@ const buttonStyles = {
 
 export default function TrafficControls({ levels, selectedLevel, onChange, isLightMode = false }) {
   const panelClass = isLightMode
-    ? 'border-slate-200 bg-white/90 text-slate-950'
-    : 'border-white/10 bg-slate-950/60 text-slate-100';
+    ? 'border-slate-200 bg-white/95 text-slate-950 shadow-lg shadow-slate-200/30'
+    : 'border-emerald-400/15 bg-slate-950/75 text-slate-100 shadow-lg shadow-black/30';
   const titleClass = isLightMode ? 'text-slate-500' : 'text-slate-400';
+  const helperClass = isLightMode ? 'text-slate-500' : 'text-slate-400';
 
   return (
-    <div className={`rounded-2xl border p-4 shadow-lg backdrop-blur ${panelClass}`}>
-      <p className={`mb-3 text-sm font-semibold uppercase tracking-[0.18em] ${titleClass}`}>
-        Traffic Controls
-      </p>
+    <div className={`rounded-2xl border p-4 backdrop-blur ${panelClass}`}>
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <p className={`text-sm font-semibold uppercase tracking-[0.18em] ${titleClass}`}>
+            Traffic Controls
+          </p>
+          <p className={`mt-1 text-xs font-medium ${helperClass}`}>Select traffic condition</p>
+        </div>
+        <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] ${isLightMode ? 'border-slate-300 bg-slate-100 text-slate-600' : 'border-white/10 bg-white/[0.04] text-slate-300'}`}>
+          Live control
+        </span>
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {levels.map((level) => {
           const isActive = selectedLevel === level.id;
@@ -61,3 +70,4 @@ export default function TrafficControls({ levels, selectedLevel, onChange, isLig
     </div>
   );
 }
+

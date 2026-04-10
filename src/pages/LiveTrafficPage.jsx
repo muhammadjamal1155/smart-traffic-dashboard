@@ -91,6 +91,12 @@ const zonePattern = {
 
 const zoneNames = ['Central City', 'Highway Entry', 'Commercial Area', 'School Zone'];
 
+const severityMinutesLookup = {
+  low: 2,
+  medium: 8,
+  high: 18,
+};
+
 function getTrafficLevelFromDelaySeconds(delaySeconds) {
   if (!Number.isFinite(delaySeconds)) {
     return 'medium';
@@ -141,7 +147,7 @@ function RoutePlannerPanel({
   theme,
 }) {
   return (
-    <form onSubmit={onSubmit} className={`rounded-2xl border p-4 shadow-lg backdrop-blur ${theme.panel}`}>
+    <form onSubmit={onSubmit} className={`h-full rounded-2xl border p-4 shadow-lg backdrop-blur ${theme.panel}`}>
       <p className={`mb-3 text-sm font-semibold uppercase tracking-[0.18em] ${theme.muted}`}>Real Route ETA</p>
       <div className="space-y-3">
         <label className="block text-sm font-semibold" htmlFor="mj-route-start">
@@ -368,7 +374,6 @@ export default function LiveTrafficPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isLightMode, setIsLightMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [showAccidentAlert, setShowAccidentAlert] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [routeStart, setRouteStart] = useState('Saddar Karachi');
@@ -395,6 +400,26 @@ export default function LiveTrafficPage() {
       signalRecommendation: signalRecommendations[baseStatus.id],
     };
   }, [selectedTraffic, routeResult]);
+
+  const dashboardAnalytics = useMemo(() => {
+    const zoneStatuses = zoneNames.map((_, index) => trafficLevelLookup[zonePattern[currentStatus.id][index]]);
+    const peakZoneIndex = zoneStatuses.reduce((bestIndex, zoneStatus, index, list) => {
+      return zoneStatus.density > list[bestIndex].density ? index : bestIndex;
+    }, 0);
+    const averageDelayMinutes = Math.round(
+      zoneStatuses.reduce((sum, zoneStatus) => sum + (severityMinutesLookup[zoneStatus.id] ?? 8), 0) /
+        zoneStatuses.length,
+    );
+    const activeAlerts = Number(showAccidentAlert) + Number(Boolean(routeError)) + Number(Boolean(isRouteLoading));
+
+    return {
+      averageDelayLabel: `${averageDelayMinutes} min avg`,
+      peakZoneLabel: zoneNames[peakZoneIndex],
+      activeAlertsLabel: `${activeAlerts} active`,
+      activeAlertsCount: activeAlerts,
+    };
+  }, [currentStatus.id, isRouteLoading, routeError, showAccidentAlert]);
+
   const isLiveMapEnabled = Boolean(import.meta.env.VITE_TOMTOM_API_KEY);
 
   const handleRouteSubmit = (event) => {
@@ -472,17 +497,6 @@ export default function LiveTrafficPage() {
     }
   }, [selectedTraffic]);
 
-  useEffect(() => {
-    if (!isVoiceListening) {
-      return undefined;
-    }
-
-    const voiceTimer = window.setTimeout(() => {
-      setIsVoiceListening(false);
-    }, 2200);
-
-    return () => window.clearTimeout(voiceTimer);
-  }, [isVoiceListening]);
 
   const theme = isLightMode
     ? {
@@ -542,7 +556,7 @@ export default function LiveTrafficPage() {
         </nav>
 
         <header id="mj-section-home" className={`mj-panel-shell rounded-2xl border p-4 backdrop-blur sm:p-6 ${theme.panel}`}>
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-stretch lg:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">
                 Smart Traffic Dashboard
@@ -565,52 +579,44 @@ export default function LiveTrafficPage() {
             </div>
 
             <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[360px]">
-              <div className="grid grid-cols-3 gap-3 rounded-xl bg-white/[0.04] p-3 text-center">
-                <div>
-                  <p className="text-xl font-black text-emerald-300">24</p>
-                  <p className={`text-xs ${theme.muted}`}>Signals</p>
+              <div className="grid grid-cols-2 gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:grid-cols-4">
+                <div className="flex min-h-[92px] flex-col justify-between rounded-xl bg-black/10 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Average Delay</p>
+                  <p className="mt-1 text-2xl font-black text-emerald-300">{dashboardAnalytics.averageDelayLabel}</p>
                 </div>
-                <div>
-                  <p className="text-xl font-black text-yellow-300">8</p>
-                  <p className={`text-xs ${theme.muted}`}>Zones</p>
+                <div className="flex min-h-[92px] flex-col justify-between rounded-xl bg-black/10 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Peak Zone</p>
+                  <p className="mt-1 text-lg font-black text-yellow-300">{dashboardAnalytics.peakZoneLabel}</p>
                 </div>
-                <div>
-                  <p className="text-xl font-black text-red-300">3</p>
-                  <p className={`text-xs ${theme.muted}`}>Levels</p>
+                <div className="flex min-h-[92px] flex-col justify-between rounded-xl bg-black/10 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Active Alerts</p>
+                  <p className="mt-1 text-2xl font-black text-red-300">{dashboardAnalytics.activeAlertsCount}</p>
+                </div>
+                <div className="flex min-h-[92px] flex-col justify-between rounded-xl bg-black/10 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Traffic Mode</p>
+                  <p className="mt-1 text-lg font-black text-sky-300">{isLiveMapEnabled ? 'Live' : 'Fallback'}</p>
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-[1fr_auto_auto]">
-                <div className={`rounded-xl border px-4 py-3 ${theme.button}`}>
+              <div className="grid items-stretch gap-3 sm:grid-cols-3 lg:grid-cols-[1fr_auto_auto]">
+                <div className={`flex h-full min-h-[88px] flex-col justify-between rounded-xl border px-4 py-3 ${theme.button}`}>
                   <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${theme.muted}`}>Control Clock</p>
                   <p className="mt-1 text-lg font-black tabular-nums">{formatClock(currentTime)}</p>
                 </div>
-                <motion.button
-                  type="button"
-                  onClick={() => setIsVoiceListening(true)}
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  className={`rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${
-                    isVoiceListening
-                      ? 'border-emerald-300 bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/30'
-                      : theme.button
-                  }`}
-                >
-                  {isVoiceListening ? 'Listening...' : 'Voice Input'}
-                </motion.button>
+
                 <motion.button
                   type="button"
                   onClick={() => setIsLightMode((mode) => !mode)}
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.96 }}
-                  className={`rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${theme.button}`}
+                  className={`flex h-full min-h-[88px] items-center justify-center rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${theme.button}`}
                 >
                   {isLightMode ? 'Dark Mode' : 'Light Mode'}
                 </motion.button>
               </div>
             </div>
           </div>
-                </header>
+        </header>
 
         <AnimatePresence>
           {showAccidentAlert && (
@@ -668,7 +674,7 @@ export default function LiveTrafficPage() {
 
         <ZoneTrafficPanel status={currentStatus} isLightMode={isLightMode} theme={theme} />
 
-        <div id="mj-section-map" className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div id="mj-section-map" className="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
           <TrafficMap
             status={currentStatus}
             isLightMode={isLightMode}
@@ -682,27 +688,40 @@ export default function LiveTrafficPage() {
             onRetryMap={() => setMapReloadKey((value) => value + 1)}
           />
 
-          <div id="mj-section-route" className="flex flex-col gap-6">
-            <RoutePlannerPanel
-              start={routeStart}
-              destination={routeDestination}
-              routeResult={routeResult}
-              routeError={routeError}
-              isRouteLoading={isRouteLoading}
-              isLiveMapEnabled={isLiveMapEnabled}
-              onStartChange={setRouteStart}
-              onDestinationChange={setRouteDestination}
-              onSubmit={handleRouteSubmit}
-              onRetry={handleRouteSubmit}
-              theme={theme}
-            />
-            <TrafficStatusBadge status={currentStatus} isLightMode={isLightMode} />
+          <div id="mj-section-route" className="flex h-full flex-col gap-6">
+            <div className="flex-1">
+              <RoutePlannerPanel
+                start={routeStart}
+                destination={routeDestination}
+                routeResult={routeResult}
+                routeError={routeError}
+                isRouteLoading={isRouteLoading}
+                isLiveMapEnabled={isLiveMapEnabled}
+                onStartChange={setRouteStart}
+                onDestinationChange={setRouteDestination}
+                onSubmit={handleRouteSubmit}
+                onRetry={handleRouteSubmit}
+                theme={theme}
+              />
+            </div>
+            <div className="flex-1">
+              <TrafficStatusBadge status={currentStatus} isLightMode={isLightMode} />
+            </div>
           </div>
         </div>
       </motion.div>
     </main>
   );
 }
+
+
+
+
+
+
+
+
+
 
 
 

@@ -88,7 +88,7 @@ export default function TrafficMap({
     : 'Add VITE_TOMTOM_API_KEY to enable the live TomTom traffic map.';
 
   return (
-    <section className={`overflow-hidden rounded-2xl border p-4 shadow-traffic backdrop-blur sm:p-5 ${panelClass}`}>
+    <section className={`flex h-full flex-col overflow-hidden rounded-2xl border p-4 shadow-traffic backdrop-blur sm:p-5 ${panelClass}`}>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className={`text-sm font-semibold uppercase tracking-[0.18em] ${mutedClass}`}>
@@ -106,7 +106,7 @@ export default function TrafficMap({
         </div>
       </div>
 
-      <div className={`mj-map-grid relative min-h-[360px] overflow-hidden rounded-xl border shadow-inner sm:min-h-[480px] lg:min-h-[560px] ${mapBaseClass}`}>
+      <div className={`mj-map-grid relative flex-1 min-h-[360px] overflow-hidden rounded-xl border shadow-inner sm:min-h-[480px] lg:min-h-[560px] ${mapBaseClass}`}>
         {isLiveMapEnabled ? (
           <TomTomTrafficMap
             key={reloadKey}
@@ -246,6 +246,7 @@ export default function TrafficMap({
     </section>
   );
 }
+
 
 
 
