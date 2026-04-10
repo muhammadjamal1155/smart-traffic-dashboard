@@ -4,6 +4,7 @@ import TrafficControls from '../components/TrafficControls.jsx';
 import TrafficLegend from '../components/TrafficLegend.jsx';
 import TrafficMap from '../components/TrafficMap.jsx';
 import TrafficStatusBadge from '../components/TrafficStatusBadge.jsx';
+import MjTrafficChartsPanel from '../components/MjTrafficChartsPanel.jsx';
 
 // Single source of truth for traffic state, colors, and animated UI copy.
 const trafficLevels = [
@@ -63,7 +64,9 @@ const trafficLevels = [
   },
 ];
 
-const navigationItems = ['Home', 'Live Traffic', 'Route Suggestion', 'Safety Tips', 'Emergency'];
+const navigationItems = [
+  { id: 'mj-section-map', label: 'Live Traffic' },
+];
 
 const formatClock = (date) =>
   new Intl.DateTimeFormat('en-US', {
@@ -134,24 +137,31 @@ function RoutePlannerPanel({
   onStartChange,
   onDestinationChange,
   onSubmit,
+  onRetry,
   theme,
 }) {
   return (
     <form onSubmit={onSubmit} className={`rounded-2xl border p-4 shadow-lg backdrop-blur ${theme.panel}`}>
       <p className={`mb-3 text-sm font-semibold uppercase tracking-[0.18em] ${theme.muted}`}>Real Route ETA</p>
       <div className="space-y-3">
-        <label className="block text-sm font-semibold">
+        <label className="block text-sm font-semibold" htmlFor="mj-route-start">
           Start location
           <input
+            id="mj-route-start"
+            aria-label="Start location"
+            autoComplete="off"
             value={start}
             onChange={(event) => onStartChange(event.target.value)}
             placeholder="Example: Saddar Karachi"
             className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 py-3 text-sm outline-none transition focus:border-emerald-300 focus:ring-2 focus:ring-emerald-400/20"
           />
         </label>
-        <label className="block text-sm font-semibold">
+        <label className="block text-sm font-semibold" htmlFor="mj-route-destination">
           Destination
           <input
+            id="mj-route-destination"
+            aria-label="Destination"
+            autoComplete="off"
             value={destination}
             onChange={(event) => onDestinationChange(event.target.value)}
             placeholder="Example: Clifton Karachi"
@@ -179,7 +189,20 @@ function RoutePlannerPanel({
         </p>
       )}
 
-      {routeError && <p className="mt-3 rounded-xl border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100">{routeError}</p>}
+      {routeError && (
+        <div className="mt-3 rounded-xl border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100" role="alert" aria-live="assertive">
+          <p>{routeError}</p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-3 rounded-lg border border-red-200/30 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-red-50 transition hover:bg-red-400/20"
+            >
+              Retry request
+            </button>
+          )}
+        </div>
+      )}
 
       {routeResult && (
         <div className="mt-3 rounded-xl border border-emerald-300/30 bg-emerald-400/10 p-3">
@@ -242,7 +265,7 @@ function TrafficIntelligencePanel({ status, routeResult, trafficHistory, isLight
   const cardClass = isLightMode ? 'bg-slate-100/80' : 'bg-white/[0.04]';
 
   return (
-    <section className={`rounded-2xl border p-4 shadow-lg backdrop-blur ${theme.panel}`}>
+    <section className={`mj-panel-shell rounded-2xl border p-4 shadow-lg backdrop-blur ${theme.panel}`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className={`text-sm font-semibold uppercase tracking-[0.18em] ${theme.muted}`}>Traffic Intelligence</p>
@@ -315,7 +338,7 @@ function ZoneTrafficPanel({ status, isLightMode, theme }) {
   const rowClass = isLightMode ? 'bg-slate-100/80' : 'bg-white/[0.04]';
 
   return (
-    <section className={`rounded-2xl border p-4 shadow-lg backdrop-blur ${theme.panel}`}>
+    <section id="mj-section-safety" className={`mj-panel-shell rounded-2xl border p-4 shadow-lg backdrop-blur ${theme.panel}`}>
       <p className={`text-sm font-semibold uppercase tracking-[0.18em] ${theme.muted}`}>Area Traffic Levels</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {zones.map((zoneStatus, index) => (
@@ -348,13 +371,14 @@ export default function LiveTrafficPage() {
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [showAccidentAlert, setShowAccidentAlert] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [routeStart, setRouteStart] = useState('');
-  const [routeDestination, setRouteDestination] = useState('');
+  const [routeStart, setRouteStart] = useState('Saddar Karachi');
+  const [routeDestination, setRouteDestination] = useState('Clifton Karachi');
   const [routeRequestId, setRouteRequestId] = useState(0);
   const [routeResult, setRouteResult] = useState(null);
   const [routeError, setRouteError] = useState('');
   const [isRouteLoading, setIsRouteLoading] = useState(false);
   const [trafficTransition, setTrafficTransition] = useState(null);
+  const [mapReloadKey, setMapReloadKey] = useState(0);
   const [trafficHistory, setTrafficHistory] = useState(() => [
     { id: 'medium', label: 'Medium', time: formatClock(new Date()) },
   ]);
@@ -506,23 +530,18 @@ export default function LiveTrafficPage() {
         transition={{ duration: 0.55, ease: 'easeOut' }}
         className="mx-auto flex w-full max-w-7xl flex-col gap-6"
       >
-        <nav className={`flex flex-nowrap items-center gap-2 overflow-x-auto rounded-2xl border p-3 backdrop-blur sm:flex-wrap ${theme.nav}`}>
+        <nav className={`flex flex-wrap items-center gap-2 rounded-2xl border p-3 backdrop-blur ${theme.nav}`}>
           {navigationItems.map((item) => (
-            <motion.button
-              key={item}
-              type="button"
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.96 }}
-              className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition-colors sm:text-sm ${
-                item === 'Live Traffic' ? theme.navActive : 'hover:bg-white/10'
-              }`}
+            <span
+              key={item.id}
+              className={`rounded-xl px-3 py-2 text-xs font-bold sm:text-sm ${theme.navActive}`}
             >
-              {item}
-            </motion.button>
+              {item.label}
+            </span>
           ))}
         </nav>
 
-        <header className={`rounded-2xl border p-4 backdrop-blur sm:p-6 ${theme.panel}`}>
+        <header id="mj-section-home" className={`mj-panel-shell rounded-2xl border p-4 backdrop-blur sm:p-6 ${theme.panel}`}>
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">
@@ -591,7 +610,7 @@ export default function LiveTrafficPage() {
               </div>
             </div>
           </div>
-        </header>
+                </header>
 
         <AnimatePresence>
           {showAccidentAlert && (
@@ -624,7 +643,7 @@ export default function LiveTrafficPage() {
           <TrafficTransitionAlert transition={trafficTransition} onDismiss={() => setTrafficTransition(null)} />
         </AnimatePresence>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.9fr)]">
+        <div id="mj-section-controls" className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.9fr)]">
           <TrafficControls
             levels={trafficLevels}
             selectedLevel={selectedTraffic}
@@ -634,6 +653,11 @@ export default function LiveTrafficPage() {
           <TrafficLegend levels={trafficLevels} isLightMode={isLightMode} />
         </div>
 
+        <MjTrafficChartsPanel
+          status={currentStatus}
+          isLightMode={isLightMode}
+          routeResult={routeResult}
+        />
         <TrafficIntelligencePanel
           status={currentStatus}
           routeResult={routeResult}
@@ -644,7 +668,7 @@ export default function LiveTrafficPage() {
 
         <ZoneTrafficPanel status={currentStatus} isLightMode={isLightMode} theme={theme} />
 
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div id="mj-section-map" className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <TrafficMap
             status={currentStatus}
             isLightMode={isLightMode}
@@ -654,9 +678,11 @@ export default function LiveTrafficPage() {
             routeRequestId={routeRequestId}
             onRouteResult={handleRouteResult}
             onRouteError={handleRouteError}
+            reloadKey={mapReloadKey}
+            onRetryMap={() => setMapReloadKey((value) => value + 1)}
           />
 
-          <div className="flex flex-col gap-6">
+          <div id="mj-section-route" className="flex flex-col gap-6">
             <RoutePlannerPanel
               start={routeStart}
               destination={routeDestination}
@@ -667,6 +693,7 @@ export default function LiveTrafficPage() {
               onStartChange={setRouteStart}
               onDestinationChange={setRouteDestination}
               onSubmit={handleRouteSubmit}
+              onRetry={handleRouteSubmit}
               theme={theme}
             />
             <TrafficStatusBadge status={currentStatus} isLightMode={isLightMode} />
@@ -676,4 +703,22 @@ export default function LiveTrafficPage() {
     </main>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

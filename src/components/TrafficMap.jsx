@@ -62,8 +62,10 @@ export default function TrafficMap({
   routeStart,
   routeDestination,
   routeRequestId,
+  reloadKey = 0,
   onRouteResult,
   onRouteError,
+  onRetryMap,
 }) {
   const tomTomApiKey = import.meta.env.VITE_TOMTOM_API_KEY;
   const isLiveMapEnabled = Boolean(tomTomApiKey);
@@ -104,9 +106,10 @@ export default function TrafficMap({
         </div>
       </div>
 
-      <div className={`map-grid relative min-h-[360px] overflow-hidden rounded-xl border shadow-inner sm:min-h-[480px] lg:min-h-[560px] ${mapBaseClass}`}>
+      <div className={`mj-map-grid relative min-h-[360px] overflow-hidden rounded-xl border shadow-inner sm:min-h-[480px] lg:min-h-[560px] ${mapBaseClass}`}>
         {isLiveMapEnabled ? (
           <TomTomTrafficMap
+            key={reloadKey}
             apiKey={tomTomApiKey}
             isLightMode={isLightMode}
             routeColor={status.routeColor}
@@ -115,6 +118,7 @@ export default function TrafficMap({
             routeRequestId={routeRequestId}
             onRouteResult={onRouteResult}
             onRouteError={onRouteError}
+            onRetryMap={onRetryMap}
           />
         ) : (
           <>
@@ -242,5 +246,10 @@ export default function TrafficMap({
     </section>
   );
 }
+
+
+
+
+
 
 

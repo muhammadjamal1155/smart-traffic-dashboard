@@ -131,6 +131,7 @@ export default function TomTomTrafficMap({
   routeRequestId,
   onRouteResult,
   onRouteError,
+  onRetryMap,
 }) {
   const mapNodeRef = useRef(null);
   const mapRef = useRef(null);
@@ -325,12 +326,26 @@ export default function TomTomTrafficMap({
   return (
     <div className="absolute inset-0 z-0">
       <div ref={mapNodeRef} className="h-full w-full" />
+      {!isMapReady && !loadError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/50 p-6 text-center text-sm font-semibold text-slate-100">
+          Loading live traffic map...
+        </div>
+      )}
       {loadError && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-950/85 p-6 text-center text-sm font-semibold text-red-100">
-          {loadError}
+          <div className="max-w-sm rounded-2xl border border-red-300/30 bg-slate-900/90 p-4 shadow-lg">
+            <p>{loadError}</p>
+            {onRetryMap && (
+              <button type="button" onClick={onRetryMap} className="mt-3 rounded-xl border border-red-200/30 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition hover:bg-red-400/20">
+                Retry loading map
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+
 

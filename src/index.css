@@ -22,9 +22,19 @@ body {
   box-sizing: border-box;
 }
 
-.map-grid {
+.mj-map-grid {
   background-image:
     linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
   background-size: 48px 48px;
 }
+
+.mj-panel-shell {
+  position: relative;
+}
+
+.mj-section-anchor {
+  height: 1px;
+  width: 100%;
+}
+
